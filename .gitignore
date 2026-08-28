@@ -1,0 +1,12 @@
+# Bytecode de Python
+__pycache__/
+*.py[cod]
+
+# Entorno virtual
+.venv/
+venv/
+
+# Archivos temporales / sistema
+*.tmp
+.DS_Store
+Thumbs.db

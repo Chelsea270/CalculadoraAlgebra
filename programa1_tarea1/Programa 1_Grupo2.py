@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 =====================================================================
- PROGRAMA 1 - GRUPO 3
+ PROGRAMA 1 - GRUPO 2
  Calculadora de Álgebra Lineal
  Solución de Sistemas de Ecuaciones Lineales por Eliminación por Filas
  Aplicación de escritorio (Tkinter) - Python estándar
@@ -287,7 +287,7 @@ class CalculadoraApp:
 
     def __init__(self, raiz):
         self.raiz = raiz
-        self.raiz.title("Calculadora de Álgebra Lineal · Grupo 3")
+        self.raiz.title("Calculadora de Álgebra Lineal · Grupo 2")
         self.raiz.configure(bg=FONDO)
         self.raiz.geometry("1200x700")
         self.raiz.minsize(1000, 620)

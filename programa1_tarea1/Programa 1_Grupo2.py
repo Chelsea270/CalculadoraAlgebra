@@ -1,71 +1,39 @@
-# -*- coding: utf-8 -*-
-"""
-=====================================================================
- PROGRAMA 1 - GRUPO 2
- Calculadora de Álgebra Lineal
- Solución de Sistemas de Ecuaciones Lineales por Eliminación por Filas
- Aplicación de escritorio (Tkinter) - Python estándar
-=====================================================================
- UNIVERSIDAD AMERICANA
- Facultad de Ingeniería y Arquitectura (FIA)
- Asignatura: Álgebra Lineal (MTM0120)
- Primer Corte Evaluativo
-
- Descripción general:
-   - El programa solicita el número de ecuaciones (m) y de variables (n).
-   - Pide los coeficientes de la matriz A y los términos independientes b,
-     formando la matriz aumentada [ A | b ].
-   - También permite escribir el sistema tal como aparece en el enunciado
-     (por ejemplo "x1 + 2x3 + x4 = 4") y lo convierte automáticamente a la
-     matriz aumentada, poniendo 0 en las variables que no aparecen.
-   - Aplica eliminación por filas (Gauss), mostrando la matriz después de
-     cada operación elemental realizada.
-   - Clasifica el sistema (Consistente Determinado / Consistente
-     Indeterminado / Inconsistente).
-   - Halla las variables (si aplica) mediante sustitución regresiva.
-   - Comprueba la solución sustituyendo los valores en el sistema original.
-
- Restricción cumplida:
-   - Solo se usa Python estándar: listas anidadas, condicionales, bucles y
-     funciones. NO se usan NumPy, SciPy ni funciones integradas de álgebra
-     lineal. Se importa 'fractions' (biblioteca estándar de Python, no de
-     álgebra lineal) para trabajar con números racionales exactos, y
-     'tkinter' (también estándar) para la ventana de escritorio.
-
- Modo de uso:
-   - Doble clic sobre el archivo, o desde la terminal:  python "Programa 1_Grupo2.py"
-   - Para ejecutar las pruebas automáticas del algoritmo:
-         python "Programa 1_Grupo2.py" --pruebas
-=====================================================================
-"""
-
 import sys
 from fractions import Fraction
 import tkinter as tk
 from tkinter import ttk, messagebox, font as tkfont
 
-# Paleta de colores (diseño limpio y moderno)
-FONDO         = "#F5F5F7"   
-TARJETA       = "#FFFFFF"   
-TEXTO         = "#1D1D1F"   
-TEXTO_SUAVE   = "#6E6E73"   
-ACENTO        = "#0071E3"   
-ACENTO_CLARO  = "#E8F0FE"   
-BORDE         = "#E5E5E5"   
-EXITO         = "#059669"   
-ADVERTENCIA   = "#B45309"   
-ERROR         = "#DC2626"   
-CELDA_BORDE   = "#D1D1D6"   
-LETRA_MONO    = "Consolas"  
+# =====================================================================
+# CONSTANTES Y PALETA DE COLORES
+# Usamos la paleta personalizada: fondo blanco, texto negro y 
+# detalles en tonos océano para los botones.
+# =====================================================================
+FONDO              = "#FFFFFF"   # Blanco puro para fondos y tarjetas
+TARJETA            = "#FFFFFF"   
+TEXTO              = "#000000"   # Negro puro para números y ecuaciones
+TEXTO_SUAVE        = "#333333"   # Gris oscuro para subtítulos
 
-MAX_DIMENSION = 8           
+ACENTO             = "#0077B6"   # Vibrante Zafiro (Botón principal)
+ACENTO_HOVER       = "#023E8A"   # Oscuro Índigo (Hover del principal)
+BOTON_SEC          = "#90E0EF"   # Claro Aguamarina (Botones de apoyo)
+BOTON_SEC_HOVER    = "#00B4D8"   # Tabla de Surf (Hover de apoyo)
+CELDA_BORDE        = "#00B4D8"   # Bordes de la matriz
 
-AYUDA_NUMERO = "Pon un entero, decimal o fracción (ej: 3, -2.5 o 3/4). Si dejas vacío, vale 0."
+EXITO              = "#059669"   # Verde para la comprobación correcta
+ADVERTENCIA        = "#8A4E02"   # Oscuro Mandarina (Infinitas soluciones)
+ERROR              = "#8A0A02"   # Rico Escarlata (Sistema inconsistente)
+
+LETRA_MONO         = "Consolas"
+MAX_DIMENSION      = 8           
+
+AYUDA_NUMERO = "Ingresa un entero, decimal o fracción (ej: 3, -2.5 o 3/4). Una casilla vacía vale 0."
+
 
 # =====================================================================
-# LÓGICA DE NÚMEROS Y FORMATO
+# BLOQUE 1: LECTURA Y FORMATO DE NÚMEROS
 # =====================================================================
 def a_numero(texto):
+    """Convierte lo que el usuario escribe en una fracción matemática exacta."""
     texto = texto.strip().replace(" ", "")
     if texto == "":
         return Fraction(0)
@@ -73,14 +41,14 @@ def a_numero(texto):
     if "/" in texto:
         partes = texto.split("/")
         if len(partes) != 2 or partes[0] == "" or partes[1] == "":
-            raise ValueError("Revisa cómo escribiste la fracción. " + AYUDA_NUMERO)
+            raise ValueError("Fracción mal escrita. " + AYUDA_NUMERO)
         try:
             numerador = Fraction(partes[0])
             denominador = Fraction(partes[1])
         except (ValueError, ZeroDivisionError):
             raise ValueError("Fracción mal escrita. " + AYUDA_NUMERO)
         if denominador == 0:
-            raise ValueError("¡No puedes dividir entre cero!")
+            raise ValueError("El denominador no puede ser cero.")
         return numerador / denominador
 
     try:
@@ -88,18 +56,17 @@ def a_numero(texto):
     except (ValueError, ZeroDivisionError):
         raise ValueError("Valor no reconocido. " + AYUDA_NUMERO)
 
-
 def formato(valor):
+    """Muestra el número bonito en pantalla (ej. '5' en lugar de '5/1')."""
     valor = Fraction(valor)
     if valor.denominator == 1:
         return str(valor.numerator)
     return f"{valor.numerator}/{valor.denominator}"
 
-
 def formato_matriz(matriz, col_barra=None, sangria="    "):
+    """Convierte nuestra matriz matemática en texto alineado para mostrar en la interfaz."""
     if not matriz:
         return []
-    
     anchos = [0] * len(matriz[0])
     for fila in matriz:
         for c, valor in enumerate(fila):
@@ -117,7 +84,7 @@ def formato_matriz(matriz, col_barra=None, sangria="    "):
 
 
 # =====================================================================
-# INTÉRPRETE DE ECUACIONES 
+# BLOQUE 1B: INTÉRPRETE DE ECUACIONES
 # =====================================================================
 ORDEN_LETRAS = ["x", "y", "z", "w", "u", "v", "s", "t"]
 EQUIVALENCIAS = {
@@ -212,14 +179,15 @@ def _ordenar_variables(nombres):
     return [dato[2] for dato in con_numero] + [dato[1] for dato in sin_numero]
 
 def interpretar_ecuaciones(texto):
+    """Convierte el bloque de texto con ecuaciones a la matriz A y el vector b."""
     lineas = [linea for linea in texto.splitlines() if linea.strip() != ""]
-    if not lineas: raise ValueError("Oye, no escribiste ninguna ecuación.")
+    if not lineas: raise ValueError("No se escribió ninguna ecuación.")
     ecuaciones, nombres = [], set()
 
     for indice, linea_original in enumerate(lineas, start=1):
         linea = _normalizar(linea_original)
         if linea.count("=") != 1:
-            raise ValueError(f"Ecuación {indice}: pon un solo '='.")
+            raise ValueError(f"Ecuación {indice}: debe llevar exactamente un signo '='.")
         izquierda, derecha = linea.split("=")
         if izquierda == "" or derecha == "":
             raise ValueError(f"Ecuación {indice}: falta un lado de la igualdad.")
@@ -234,7 +202,7 @@ def interpretar_ecuaciones(texto):
                     coeficientes[nombre] = coeficientes.get(nombre, Fraction(0)) + orientacion * valor
                     nombres.add(nombre)
 
-        if not coeficientes: raise ValueError(f"Ecuación {indice}: no hay variables aquí.")
+        if not coeficientes: raise ValueError(f"Ecuación {indice}: no tiene ninguna variable.")
         ecuaciones.append((coeficientes, constante))
 
     orden = _ordenar_variables(nombres)
@@ -244,25 +212,33 @@ def interpretar_ecuaciones(texto):
         b.append(constante)
     return A, b, orden
 
+
 # =====================================================================
-# OPERACIONES DE FILAS 
+# BLOQUE 2: ESCALONAMIENTO Y REDUCCIÓN (MÉTODO DE GAUSS-JORDAN)
+# Ahora llega hasta la Matriz Identidad (1s en diagonal, 0s en el resto)
 # =====================================================================
 def intercambiar_filas(matriz, i, j):
+    """Cambia la fila i por la j."""
     matriz[i], matriz[j] = matriz[j], matriz[i]
-    return f"🔄 Intercambiamos Fila {i+1} con Fila {j+1}"
+    return f"Intercambio de filas: F{i+1} <-> F{j+1}"
 
 def reemplazar_fila(matriz, destino, factor, origen):
+    """Hace cero el número restando filas."""
     matriz[destino] = [matriz[destino][c] - factor * matriz[origen][c] for c in range(len(matriz[destino]))]
-    return f"➖ Anulamos en F{destino+1} ---> F{destino+1} = F{destino+1} - ({formato(factor)}) * F{origen+1}"
+    return f"Anular en F{destino+1}: F{destino+1} = F{destino+1} - ({formato(factor)}) * F{origen+1}"
 
 def escalonar(matriz, col_barra=None):
+    """Lleva la matriz a su forma escalonada reducida (Identidad)."""
     pasos = []
     filas = len(matriz)
     columnas = len(matriz[0])
     fila_pivote = 0
     pivotes = []
 
-    for col in range(columnas):
+    pasos.append("--- FASE 1: MÉTODO DE GAUSS (Ceros debajo de los pivotes) ---")
+    pasos.append("")
+
+    for col in range(columnas - 1): # Nos detenemos antes del vector b
         if fila_pivote >= filas: break
 
         fila_no_nula = None
@@ -277,18 +253,28 @@ def escalonar(matriz, col_barra=None):
         if fila_no_nula != fila_pivote:
             pasos.append(intercambiar_filas(matriz, fila_pivote, fila_no_nula))
             pasos.extend(formato_matriz(matriz, col_barra))
-            pasos.append("") 
+            pasos.append("")
 
+        # Novedad: Convertir el pivote a 1 (Normalizar)
+        pivote_val = matriz[fila_pivote][col]
+        if pivote_val != 1:
+            matriz[fila_pivote] = [x / pivote_val for x in matriz[fila_pivote]]
+            pasos.append(f"Convertir pivote a 1: F{fila_pivote+1} = F{fila_pivote+1} / ({formato(pivote_val)})")
+            pasos.extend(formato_matriz(matriz, col_barra))
+            pasos.append("")
+
+        # Generar ceros por debajo
         for f in range(fila_pivote + 1, filas):
             if matriz[f][col] != 0:
-                factor = matriz[f][col] / matriz[fila_pivote][col]
+                factor = matriz[f][col]
                 pasos.append(reemplazar_fila(matriz, f, factor, fila_pivote))
                 pasos.extend(formato_matriz(matriz, col_barra))
-                pasos.append("") 
+                pasos.append("")
 
         pivotes.append((fila_pivote, col))
         fila_pivote += 1
 
+    # Bajar filas nulas al final
     f = fila_pivote
     while f < filas:
         if all(valor == 0 for valor in matriz[f]):
@@ -300,30 +286,74 @@ def escalonar(matriz, col_barra=None):
             if siguiente is None: break
             pasos.append(intercambiar_filas(matriz, f, siguiente))
             pasos.extend(formato_matriz(matriz, col_barra))
-            pasos.append("") 
+            pasos.append("")
         f += 1
+
+    # Novedad: Fase 2 (Gauss-Jordan) -> Ceros por encima de la diagonal
+    if len(pivotes) > 0:
+        pasos.append("--- FASE 2: GAUSS-JORDAN (Ceros arriba de los pivotes) ---")
+        pasos.append("")
+        hubo_operaciones_arriba = False
+        
+        # Recorremos los pivotes de abajo hacia arriba
+        for i in range(len(pivotes)-1, -1, -1):
+            f_piv, c_piv = pivotes[i]
+            for f_arriba in range(f_piv - 1, -1, -1):
+                if matriz[f_arriba][c_piv] != 0:
+                    factor = matriz[f_arriba][c_piv]
+                    pasos.append(reemplazar_fila(matriz, f_arriba, factor, f_piv))
+                    pasos.extend(formato_matriz(matriz, col_barra))
+                    pasos.append("")
+                    hubo_operaciones_arriba = True
+                    
+        if not hubo_operaciones_arriba:
+            pasos.append("La matriz ya estaba completamente reducida.")
+            pasos.append("")
 
     return pasos, pivotes
 
+def entrada_principal(fila):
+    """Busca el primer elemento distinto de cero en una fila."""
+    for c, valor in enumerate(fila):
+        if valor != 0: return c
+    return None
+
+def es_escalonada(matriz):
+    """Verificador usado por las pruebas automáticas para confirmar que el algoritmo no falló."""
+    principales = [entrada_principal(fila) for fila in matriz]
+    vista_nula = False
+    for p in principales:
+        if p is None:
+            vista_nula = True
+        elif vista_nula:
+            return False, "hay una fila no nula debajo de una fila de ceros"
+    anterior = -1
+    for p in principales:
+        if p is None: continue
+        if p <= anterior: return False, "las entradas principales no forman escalera"
+        anterior = p
+    return True, ""
+
+
+# =====================================================================
+# BLOQUE 4: CLASIFICACIÓN Y SUSTITUCIÓN REGRESIVA
+# =====================================================================
 def resolver_sistema(m, n, A, b):
     A = [[Fraction(valor) for valor in fila] for fila in A]
     b = [Fraction(valor) for valor in b]
     aumentada = [A[i][:] + [b[i]] for i in range(m)]
 
-    pasos = ["========================================", 
-             "MATRIZ AUMENTADA INICIAL [A | b]:",
-             "========================================"]
+    pasos = ["Matriz aumentada inicial [A|b]:"]
     pasos.extend(formato_matriz(aumentada, n))
-    pasos.append("\nINICIANDO ESCALONAMIENTO...")
+    pasos.append("")
 
     pasos_escalonamiento, pivotes = escalonar(aumentada, n)
     if pasos_escalonamiento:
         pasos.extend(pasos_escalonamiento)
     else:
-        pasos.append("Ya estaba lista, cero esfuerzo.")
+        pasos.append("La matriz ya estaba en forma escalonada; no hizo falta ninguna operación.")
     
-    pasos.append("========================================")
-    pasos.append("FORMA ESCALONADA FINAL:")
+    pasos.append("Forma Escalonada Reducida Final (Matriz Identidad):")
     pasos.extend(formato_matriz(aumentada, n))
 
     columnas_pivote = [c for _, c in pivotes]
@@ -337,6 +367,7 @@ def resolver_sistema(m, n, A, b):
         "n": n,
     }
 
+    # Caso Inconsistente (0 = k)
     if n in columnas_pivote:
         fila_k = 0
         for i, fila in enumerate(aumentada):
@@ -345,8 +376,8 @@ def resolver_sistema(m, n, A, b):
                 break
         valor_k = formato(aumentada[fila_k][n])
         resultado["clasificacion"] = "Inconsistente"
-        resultado["descripcion"] = f"No tiene solución. Hay un 0 = {valor_k} en la fila {fila_k+1}."
-        resultado["verificacion"] = "No se puede comprobar porque es inconsistente."
+        resultado["descripcion"] = f"Sistema sin solución. La fila {fila_k+1} quedó como [0 0 ... 0 | {valor_k}], que es la ecuación imposible 0 = {valor_k}."
+        resultado["verificacion"] = "No hay solución que comprobar: el sistema es inconsistente."
         return resultado
 
     pivotes_variables = [(f, c) for f, c in pivotes if c < n]
@@ -354,20 +385,36 @@ def resolver_sistema(m, n, A, b):
     variables_libres = [c for c in range(n) if c not in columnas_con_pivote]
     resultado["variables_libres"] = variables_libres
 
+    # Caso Infinitas Soluciones
     if variables_libres:
+        cantidad_pivotes = len(pivotes_variables)
+        cantidad_libres = len(variables_libres)
         resultado["clasificacion"] = "Consistente Indeterminado"
-        resultado["descripcion"] = f"Tiene infinitas soluciones. Te sobraron variables libres."
-        resultado["verificacion"] = "Infinitas soluciones, dependen de los valores que le des a las libres."
+        resultado["descripcion"] = f"Sistema con infinitas soluciones. Hay {cantidad_pivotes} pivotes para {n} variables, dejando {cantidad_libres} variables libres."
+        resultado["verificacion"] = "El sistema tiene infinitas soluciones. Los valores dependen de las variables libres."
         return resultado
 
+    # Caso Solución Única
     solucion = sustitucion_regresiva(aumentada, n, pivotes_variables)
     resultado["clasificacion"] = "Consistente Determinado"
-    resultado["descripcion"] = "¡Solución única! Tenemos los valores exactos."
+    resultado["descripcion"] = f"Sistema con solución única. Hay un pivote en cada una de las {n} columnas, sin variables libres."
     resultado["solucion"] = solucion
-    resultado["verificacion"] = verificar(m, n, A, b, solucion)
+    
+    # Comprobación explícita (número a número)
+    texto_verificacion = verificar(m, n, A, b, solucion)
+    resultado["verificacion"] = texto_verificacion
+    
+    # Inyectar la comprobación al final del panel de Procedimiento
+    resultado["pasos"].append("")
+    resultado["pasos"].append("========================================")
+    resultado["pasos"].append("COMPROBACIÓN DEL SISTEMA (PASO FINAL):")
+    resultado["pasos"].append("========================================")
+    resultado["pasos"].extend(texto_verificacion.split("\n"))
+    
     return resultado
 
 def sustitucion_regresiva(aumentada, n, pivotes_variables):
+    """Despeja las variables de abajo hacia arriba."""
     x = [Fraction(0)] * n
     for fila_p, col_p in reversed(pivotes_variables):
         total = aumentada[fila_p][n]
@@ -377,17 +424,35 @@ def sustitucion_regresiva(aumentada, n, pivotes_variables):
     return x
 
 def verificar(m, n, A, b, solucion):
-    lineas = ["Reemplazando los resultados en el sistema original:", "-" * 50]
+    """Reemplaza los resultados en el sistema original armando la ecuación paso a paso."""
+    lineas = ["Sustituyendo explícitamente los valores hallados en las ecuaciones originales:"]
     todo_correcto = True
+    
     for i in range(m):
         total = Fraction(0)
+        partes_ecuacion = []
+        
         for j in range(n):
-            total += A[i][j] * solucion[j]
+            coeficiente = A[i][j]
+            valor = solucion[j]
+            total += coeficiente * valor
+            
+            # Crea la visual: (Coeficiente)(Valor)
+            if coeficiente != 0:
+                partes_ecuacion.append(f"({formato(coeficiente)})({formato(valor)})")
+            else:
+                partes_ecuacion.append(f"(0)({formato(valor)})")
+                
+        ecuacion_visual = " + ".join(partes_ecuacion).replace("+ -", "- ")
         correcta = (total == b[i])
         todo_correcto = todo_correcto and correcta
-        lineas.append(f"   Ecuación {i+1}:  {formato(total)} = {formato(b[i])}   ->   {'✅ BIEN' if correcta else '❌ ERROR'}")
-    lineas.append("-" * 50)
-    lineas.append("¡Comprobado! Las ecuaciones cuadran a la perfección." if todo_correcto else "Algo falló, revisa los datos.")
+        
+        lineas.append(f"   Ec{i+1}: {ecuacion_visual} = {formato(b[i])}")
+        lineas.append(f"        {formato(total)} = {formato(b[i])}   ->   {'✅ CORRECTO' if correcta else '❌ FALLO'}")
+        lineas.append("") 
+        
+    lineas.append("-" * 46)
+    lineas.append("La solución satisface todas las ecuaciones." if todo_correcto else "La solución NO satisface el sistema.")
     return "\n".join(lineas)
 
 EJEMPLOS = {
@@ -396,32 +461,34 @@ EJEMPLOS = {
     "sin_solucion": {"titulo": "Sin solución", "ecuaciones": "x1 + x2 = 1\nx1 + x2 = 3"},
 }
 
+
 # =====================================================================
-# INTERFAZ GRÁFICA (PANTALLAS)
+# BLOQUE 6: INTERFAZ GRÁFICA (Tkinter)
 # =====================================================================
 class MenuPrincipal:
-    """Pantalla de inicio nueva para elegir el tema (Matrices)."""
+    """Pantalla inicial del sistema para elegir el módulo."""
     def __init__(self, raiz):
         self.raiz = raiz
         self.raiz.title("Calculadora de Álgebra Lineal - Proyecto UAM")
         self.raiz.configure(bg=FONDO)
-        self.raiz.geometry("1120x640")
+        
+        self.raiz.geometry("1000x680")
+        self.raiz.minsize(900, 600)
         self._centrar_ventana()
         
         self.frame_menu = tk.Frame(self.raiz, bg=FONDO)
         self.frame_menu.pack(fill="both", expand=True)
         
-        # Textos de Bienvenida con tipografía Montserrat
-        tk.Label(self.frame_menu, text="¡Bienvenido a la mejor Calculadora!", font=("Montserrat", 28, "bold"), bg=FONDO, fg=TEXTO).pack(pady=(150, 10))
-        tk.Label(self.frame_menu, text="Proyecto de Álgebra Lineal", font=("Montserrat", 16), bg=FONDO, fg=TEXTO_SUAVE).pack(pady=(0, 60))
+        tk.Label(self.frame_menu, text="✨ ¡Bienvenido a la mejor Calculadora! ✨", font=("Montserrat", 26, "bold"), bg=FONDO, fg=TEXTO).pack(pady=(150, 10))
+        tk.Label(self.frame_menu, text="Proyecto de Álgebra Lineal", font=("Montserrat", 16), bg=FONDO, fg=TEXTO_SUAVE).pack(pady=(0, 40))
+        tk.Label(self.frame_menu, text="Selecciona el módulo en el que quieres trabajar:", font=("Montserrat", 13), bg=FONDO, fg=TEXTO).pack(pady=(0, 20))
         
-        tk.Label(self.frame_menu, text="Selecciona el módulo en el que quieres trabajar:", font=("Montserrat", 14), bg=FONDO, fg=TEXTO).pack(pady=(0, 30))
-        
-        # Botón único de Módulo
-        btn_matrices = tk.Button(self.frame_menu, text="Sistemas de Ecuaciones (Matrices)", font=("Montserrat", 14, "bold"), 
-                                 bg=ACENTO, fg="#FFFFFF", padx=30, pady=15, relief="flat", cursor="hand2", 
-                                 activebackground="#0062C4", activeforeground="#FFFFFF", command=self.abrir_calculadora)
+        btn_matrices = tk.Button(self.frame_menu, text="🧮 Sistemas de Ecuaciones (Matrices)", font=("Montserrat", 13, "bold"), 
+                                 bg=ACENTO, fg=FONDO, padx=30, pady=15, relief="flat", cursor="hand2", 
+                                 activebackground=ACENTO_HOVER, activeforeground=FONDO, command=self.abrir_calculadora)
         btn_matrices.pack(pady=10)
+
+        tk.Label(self.frame_menu, text="Desarrollado por Grupo 2 • Universidad Americana (UAM)", font=("Montserrat", 10), bg=FONDO, fg=TEXTO_SUAVE).pack(side="bottom", pady=40)
 
     def abrir_calculadora(self):
         self.frame_menu.pack_forget()
@@ -456,14 +523,13 @@ class CalculadoraApp:
         self.ultimo_resultado = None
         self.etiquetas_ajustables = []
 
-        # Tipografía cambiada globalmente a Montserrat
         self.fuente_titulo = tkfont.Font(family="Montserrat", size=22, weight="bold")
         self.fuente_sub = tkfont.Font(family="Montserrat", size=11)
         self.fuente_body = tkfont.Font(family="Montserrat", size=11)
         self.fuente_encab = tkfont.Font(family="Montserrat", size=11, weight="bold")
         self.fuente_big = tkfont.Font(family="Montserrat", size=17, weight="bold")
         self.fuente_cartel = tkfont.Font(family="Montserrat", size=15, weight="bold")
-        self.fuente_mono = tkfont.Font(family=LETRA_MONO, size=11) # Se mantiene Consolas solo para la matriz (alineación)
+        self.fuente_mono = tkfont.Font(family=LETRA_MONO, size=11) 
         self.fuente_boton = tkfont.Font(family="Montserrat", size=12, weight="bold")
 
         self.marco_principal = tk.Frame(self.raiz, bg=FONDO)
@@ -474,11 +540,11 @@ class CalculadoraApp:
 
     def _construir_ui(self):
         btn_volver = tk.Button(self.marco_principal, text="← Volver al Menú", font=self.fuente_body, 
-                               bg=FONDO, fg=ACENTO, bd=0, relief="flat", cursor="hand2", command=self.volver_al_menu)
+                               bg=FONDO, fg=ACENTO, bd=0, relief="flat", cursor="hand2", activeforeground=ACENTO_HOVER, command=self.volver_al_menu)
         btn_volver.grid(row=0, column=0, sticky="w", padx=34, pady=(10, 0))
 
-        tk.Label(self.marco_principal, text="Calculadora de Matrices", font=self.fuente_titulo, bg=FONDO, fg=TEXTO).grid(row=1, column=0, columnspan=2, sticky="w", padx=34, pady=(5, 4))
-        tk.Label(self.marco_principal, text="Solución por eliminación por filas (Método de Gauss)", font=self.fuente_sub, bg=FONDO, fg=TEXTO_SUAVE).grid(row=2, column=0, columnspan=2, sticky="w", padx=34, pady=(0, 14))
+        tk.Label(self.marco_principal, text="Calculadora de Álgebra Lineal", font=self.fuente_titulo, bg=FONDO, fg=TEXTO).grid(row=1, column=0, columnspan=2, sticky="w", padx=34, pady=(5, 4))
+        tk.Label(self.marco_principal, text="Solución de sistemas Ax = b por eliminación por filas (Gauss-Jordan)", font=self.fuente_sub, bg=FONDO, fg=TEXTO_SUAVE).grid(row=2, column=0, columnspan=2, sticky="w", padx=34, pady=(0, 14))
 
         self.marco_principal.columnconfigure(0, weight=2, uniform="paneles")
         self.marco_principal.columnconfigure(1, weight=3, uniform="paneles")
@@ -491,7 +557,7 @@ class CalculadoraApp:
         tarjeta_ecuaciones.pack(side="top", fill="x", pady=(0, 10))
         self._llenar_ecuaciones(tarjeta_ecuaciones)
 
-        self.boton_resolver = tk.Button(panel_izq, text="Resolver Sistema", font=self.fuente_boton, bg=ACENTO, fg="#FFFFFF", cursor="hand2", relief="flat", padx=18, pady=12, command=self._al_resolver)
+        self.boton_resolver = tk.Button(panel_izq, text="Resolver Sistema", font=self.fuente_boton, bg=ACENTO, fg=FONDO, cursor="hand2", relief="flat", padx=18, pady=12, activebackground=ACENTO_HOVER, activeforeground=FONDO, command=self._al_resolver)
         self.boton_resolver.pack(side="bottom", fill="x", pady=(10, 0))
 
         tarjeta_matriz = self._crear_tarjeta(panel_izq)
@@ -528,9 +594,9 @@ class CalculadoraApp:
         cabecera.pack(fill="x", padx=18, pady=(14, 6))
         tk.Label(cabecera, text="Resultado", font=self.fuente_sub, bg=TARJETA, fg=TEXTO).pack(side="left")
 
-        self.boton_procedimiento = tk.Button(cabecera, text="Ver paso a paso", font=self.fuente_body, bg=FONDO, fg=ACENTO, bd=0, relief="flat", cursor="hand2", padx=12, pady=4, command=self._alternar_procedimiento)
+        self.boton_procedimiento = tk.Button(cabecera, text="Ver procedimiento", font=self.fuente_body, bg=BOTON_SEC, fg=TEXTO, bd=0, relief="flat", cursor="hand2", padx=12, pady=4, activebackground=BOTON_SEC_HOVER, activeforeground=TEXTO, command=self._alternar_procedimiento)
 
-        self.aviso_vacio = tk.Label(tarjeta_resultado, text="Llena la matriz a la izquierda o pega tus ecuaciones\ny luego presiona «Resolver Sistema».", font=self.fuente_body, bg=TARJETA, fg=TEXTO_SUAVE, justify="left", anchor="nw", padx=18, pady=14)
+        self.aviso_vacio = tk.Label(tarjeta_resultado, text="Complete las dimensiones y la matriz aumentada a la izquierda,\ny luego pulse «Resolver Sistema».", font=self.fuente_body, bg=TARJETA, fg=TEXTO_SUAVE, justify="left", anchor="nw", padx=18, pady=14)
         self.aviso_vacio.pack(fill="both", expand=True)
 
         self.lienzo_resultado = tk.Canvas(tarjeta_resultado, bg=TARJETA, highlightthickness=0)
@@ -581,26 +647,27 @@ class CalculadoraApp:
         lienzo.bind("<Leave>", al_salir)
 
     def _crear_tarjeta(self, padre):
-        return tk.Frame(padre, bg=TARJETA, highlightbackground=BORDE, highlightthickness=1, bd=0)
+        return tk.Frame(padre, bg=TARJETA, highlightbackground=BOTON_SEC, highlightthickness=1, bd=0)
 
     def _llenar_ecuaciones(self, tarjeta):
         cont = tk.Frame(tarjeta, bg=TARJETA)
         cont.pack(fill="x", padx=18, pady=(14, 14))
 
-        tk.Label(cont, text="Pega tus ecuaciones aquí (opcional)", font=self.fuente_sub, bg=TARJETA, fg=TEXTO).pack(fill="x", pady=(0, 2))
+        tk.Label(cont, text="Sistema de ecuaciones", font=self.fuente_sub, bg=TARJETA, fg=TEXTO, anchor="w").pack(fill="x", pady=(0, 2))
+        tk.Label(cont, text="Una ecuación por línea; las que falten valen 0.", font=self.fuente_body, bg=TARJETA, fg=TEXTO_SUAVE, anchor="w", justify="left", wraplength=420).pack(fill="x", pady=(0, 6))
         
-        self.caja_ecuaciones = tk.Text(cont, height=5, font=self.fuente_mono, bg="#FFFFFF", fg=TEXTO, relief="solid", bd=1, highlightthickness=1, highlightbackground=CELDA_BORDE, highlightcolor=ACENTO, wrap="none", padx=8, pady=6)
+        self.caja_ecuaciones = tk.Text(cont, height=5, font=self.fuente_mono, bg=FONDO, fg=TEXTO, relief="solid", bd=1, highlightthickness=1, highlightbackground=BOTON_SEC, highlightcolor=ACENTO, wrap="none", padx=8, pady=6)
         self.caja_ecuaciones.pack(fill="x")
         self.caja_ecuaciones.insert("1.0", "x1 + x2 + x3 = 6\n2x1 - x2 + x3 = 3\nx1 + 2x2 - x3 = 2")
 
         botones = tk.Frame(cont, bg=TARJETA)
         botones.pack(fill="x", pady=(8, 0))
         
-        self._boton_secundario(botones, "Pasar a matriz", self._convertir_ecuaciones, 0, 0)
-        self._boton_secundario(botones, "Borrar todo", self._borrar_ecuaciones, 0, 1)
-        self._boton_secundario(botones, "Ej. Sol. Única", lambda: self._cargar_ejemplo("unica"), 1, 0)
-        self._boton_secundario(botones, "Ej. Infinitas", lambda: self._cargar_ejemplo("infinitas"), 1, 1)
-        self._boton_secundario(botones, "Ej. Sin Solución", lambda: self._cargar_ejemplo("sin_solucion"), 1, 2)
+        self._boton_secundario(botones, "Convertir a matriz", self._convertir_ecuaciones, 0, 0)
+        self._boton_secundario(botones, "Borrar", self._borrar_ecuaciones, 0, 1)
+        self._boton_secundario(botones, "Ej. única", lambda: self._cargar_ejemplo("unica"), 1, 0)
+        self._boton_secundario(botones, "Ej. infinitas", lambda: self._cargar_ejemplo("infinitas"), 1, 1)
+        self._boton_secundario(botones, "Ej. sin solución", lambda: self._cargar_ejemplo("sin_solucion"), 1, 2)
 
         self.aviso_ecuaciones = tk.Label(cont, text="", font=self.fuente_body, bg=TARJETA, fg=EXITO, anchor="w")
         self.aviso_ecuaciones.pack(fill="x", pady=(4, 0))
@@ -616,7 +683,7 @@ class CalculadoraApp:
             filas, columnas = len(A), len(nombres)
             
             if filas > MAX_DIMENSION or columnas > MAX_DIMENSION:
-                raise ValueError("Uy, muy grande. El límite es 8x8.")
+                raise ValueError(f"El sistema es muy grande. El límite es {MAX_DIMENSION}x{MAX_DIMENSION}.")
 
             self.var_m.set(str(filas))
             self.var_n.set(str(columnas))
@@ -628,14 +695,14 @@ class CalculadoraApp:
                     self.celdas[(i, j)].set(formato(A[i][j]))
                 self.celdas[(i, columnas)].set(formato(b[i]))
 
-            self.aviso_ecuaciones.configure(fg=EXITO, text=f"Listo: detecté {filas} ecuaciones y variables ({', '.join(nombres)}).")
+            self.aviso_ecuaciones.configure(fg=EXITO, text=f"Listo: {filas} ecuaciones y {columnas} variables detectadas.")
         except ValueError as error:
             self.aviso_ecuaciones.configure(fg=ERROR, text=str(error))
         except Exception as error: 
-            self.aviso_ecuaciones.configure(fg=ERROR, text=f"Error raro: {error}")
+            self.aviso_ecuaciones.configure(fg=ERROR, text=f"Error inesperado: {error}")
 
     def _boton_secundario(self, padre, texto, accion, fila=0, columna=0):
-        boton = tk.Button(padre, text=texto, font=self.fuente_body, bg=FONDO, fg=ACENTO, bd=0, relief="flat", cursor="hand2", padx=10, pady=4, command=accion)
+        boton = tk.Button(padre, text=texto, font=self.fuente_body, bg=BOTON_SEC, fg=TEXTO, bd=0, relief="flat", cursor="hand2", padx=10, pady=4, activebackground=BOTON_SEC_HOVER, activeforeground=TEXTO, command=accion)
         boton.grid(row=fila, column=columna, sticky="w", padx=(0, 8), pady=(0, 4))
         return boton
 
@@ -643,18 +710,18 @@ class CalculadoraApp:
         cont = tk.Frame(tarjeta, bg=TARJETA)
         cont.pack(fill="x", padx=18, pady=(14, 6))
 
-        tk.Label(cont, text="Matriz aumentada [A | b]", font=self.fuente_sub, bg=TARJETA, fg=TEXTO).grid(row=0, column=0, columnspan=6, sticky="w", pady=(0, 8))
+        tk.Label(cont, text="Matriz aumentada [A | b] — ingrese los coeficientes", font=self.fuente_sub, bg=TARJETA, fg=TEXTO).grid(row=0, column=0, columnspan=6, sticky="w", pady=(0, 8))
 
         tk.Label(cont, text="Ecuaciones (m)", font=self.fuente_body, bg=TARJETA, fg=TEXTO_SUAVE).grid(row=1, column=0, sticky="w", padx=(0, 8))
-        tk.Spinbox(cont, from_=1, to=MAX_DIMENSION, textvariable=self.var_m, width=4, justify="center", bg="#FFFFFF", relief="solid", bd=1, command=self._construir_grid_matriz).grid(row=1, column=1, sticky="w", padx=(0, 18))
+        tk.Spinbox(cont, from_=1, to=MAX_DIMENSION, textvariable=self.var_m, width=4, justify="center", bg=FONDO, fg=TEXTO, relief="solid", bd=1, highlightthickness=1, highlightbackground=BOTON_SEC, highlightcolor=ACENTO, command=self._construir_grid_matriz).grid(row=1, column=1, sticky="w", padx=(0, 18))
 
         tk.Label(cont, text="Variables (n)", font=self.fuente_body, bg=TARJETA, fg=TEXTO_SUAVE).grid(row=1, column=2, sticky="w", padx=(0, 8))
-        tk.Spinbox(cont, from_=1, to=MAX_DIMENSION, textvariable=self.var_n, width=4, justify="center", bg="#FFFFFF", relief="solid", bd=1, command=self._construir_grid_matriz).grid(row=1, column=3, sticky="w")
+        tk.Spinbox(cont, from_=1, to=MAX_DIMENSION, textvariable=self.var_n, width=4, justify="center", bg=FONDO, fg=TEXTO, relief="solid", bd=1, highlightthickness=1, highlightbackground=BOTON_SEC, highlightcolor=ACENTO, command=self._construir_grid_matriz).grid(row=1, column=3, sticky="w")
 
         botones = tk.Frame(cont, bg=TARJETA)
         botones.grid(row=2, column=0, columnspan=4, sticky="w", pady=(8, 0))
-        self._boton_secundario(botones, "Actualizar cuadrícula", self._construir_grid_matriz, 0, 0)
-        self._boton_secundario(botones, "Limpiar celdas", self._limpiar_celdas, 0, 1)
+        self._boton_secundario(botones, "Actualizar matriz", self._construir_grid_matriz, 0, 0)
+        self._boton_secundario(botones, "Limpiar", self._limpiar_celdas, 0, 1)
 
     def _leer_dimension(self, variable, por_defecto):
         try: valor = int(str(variable.get()).strip())
@@ -680,7 +747,7 @@ class CalculadoraApp:
             for j in range(n + 1):
                 variable = tk.StringVar(value=valores_previos.get((i, j), ""))
                 self.celdas[(i, j)] = variable
-                entrada = tk.Entry(self.frame_matriz, textvariable=variable, font=self.fuente_mono, width=6, justify="center", relief="solid", bd=1, highlightthickness=1, highlightbackground=CELDA_BORDE, highlightcolor=ACENTO)
+                entrada = tk.Entry(self.frame_matriz, textvariable=variable, font=self.fuente_mono, width=6, justify="center", relief="solid", bd=1, highlightthickness=1, highlightbackground=CELDA_BORDE, highlightcolor=ACENTO, bg=FONDO, fg=TEXTO)
                 padx = (14, 2) if j == n else (2, 2)
                 entrada.grid(row=i + 1, column=j, padx=padx, pady=3, ipady=3)
                 entrada.bind("<Return>", lambda e: self._al_resolver())
@@ -718,7 +785,7 @@ class CalculadoraApp:
             self._mostrar_resultado(resultado)
 
         except Exception as error:
-            messagebox.showerror("Aviso", f"Hubo un error calculando:\n{error}")
+            messagebox.showerror("Error inesperado", f"Ocurrió un problema:\n{error}")
 
     def _restaurar_bordes(self):
         for entrada in self.entradas.values(): entrada.configure(highlightbackground=CELDA_BORDE, highlightcolor=ACENTO)
@@ -729,7 +796,7 @@ class CalculadoraApp:
         if entrada:
             entrada.configure(highlightbackground=ERROR, highlightcolor=ERROR)
             entrada.focus_set()
-        messagebox.showerror("Cuidado", mensaje)
+        messagebox.showerror("Entrada inválida", mensaje)
 
     def _limpiar_resultado(self):
         if self.aviso_vacio and self.aviso_vacio.winfo_manager():
@@ -757,7 +824,7 @@ class CalculadoraApp:
         sub = self._sub_tarjeta("CLASIFICACIÓN", TEXTO_SUAVE)
         cartel = tk.Frame(sub, bg=color, padx=14, pady=10)
         cartel.pack(fill="x", pady=(0, 4))
-        self._texto_ajustable(tk.Label(cartel, text=clasificacion.upper(), font=self.fuente_cartel, bg=color, fg="#FFFFFF")).pack(fill="x")
+        self._texto_ajustable(tk.Label(cartel, text=clasificacion.upper(), font=self.fuente_cartel, bg=color, fg=FONDO)).pack(fill="x")
         self._texto_ajustable(tk.Label(sub, text=resultado["descripcion"], font=self.fuente_body, bg=TARJETA, fg=TEXTO)).pack(fill="x", pady=(0, 6))
 
         if resultado["solucion"] is not None:
@@ -765,25 +832,25 @@ class CalculadoraApp:
             contenedor = tk.Frame(sub2, bg=FONDO, padx=12, pady=10)
             contenedor.pack(fill="x", pady=(0, 8))
             texto_solucion = "     ".join(f"x{i+1} = {formato(v)}" for i, v in enumerate(resultado["solucion"]))
-            self._texto_ajustable(tk.Label(contenedor, text=texto_solucion, font=self.fuente_big, bg=FONDO, fg=ACENTO)).pack(fill="x")
+            self._texto_ajustable(tk.Label(contenedor, text=texto_solucion, font=self.fuente_big, bg=FONDO, fg=TEXTO)).pack(fill="x")
         
         elif clasificacion == "Consistente Indeterminado":
             sub2 = self._sub_tarjeta("VARIABLES LIBRES", ADVERTENCIA)
             nombres = "   ".join(f"x{c+1}" for c in resultado["variables_libres"])
             tk.Label(sub2, text="Soluciones dadas en función de:", font=self.fuente_body, bg=TARJETA, fg=TEXTO_SUAVE).pack(fill="x")
-            self._texto_ajustable(tk.Label(sub2, text=nombres, font=self.fuente_big, bg=TARJETA, fg=ADVERTENCIA)).pack(fill="x", pady=(4, 8))
+            self._texto_ajustable(tk.Label(sub2, text=nombres, font=self.fuente_big, bg=TARJETA, fg=TEXTO)).pack(fill="x", pady=(4, 8))
 
         sub3 = self._sub_tarjeta("COMPROBACIÓN", EXITO)
         self._texto_ajustable(tk.Label(sub3, text=resultado["verificacion"], font=self.fuente_mono, bg=TARJETA, fg=TEXTO, justify="left", anchor="w")).pack(fill="x", pady=(0, 8))
 
         # ================= PROCEDIMIENTO =================
         self.sub_procedimiento = tk.Frame(self.frame_resultado, bg=TARJETA)
-        tk.Label(self.sub_procedimiento, text="PASO A PASO", font=self.fuente_encab, bg=TARJETA, fg=TEXTO, anchor="w").pack(fill="x", padx=2, pady=(6, 2))
+        tk.Label(self.sub_procedimiento, text="PROCESO DE ELIMINACIÓN (GAUSS-JORDAN)", font=self.fuente_encab, bg=TARJETA, fg=TEXTO_SUAVE, anchor="w").pack(fill="x", padx=2, pady=(6, 2))
         
         self._texto_ajustable(tk.Label(self.sub_procedimiento, text="\n".join(resultado["pasos"]), font=self.fuente_mono, bg=TARJETA, fg=TEXTO, justify="left", anchor="w")).pack(fill="x", pady=(0, 10))
 
         self.procedimiento_visible = False
-        self.boton_procedimiento.configure(text="Ver paso a paso")
+        self.boton_procedimiento.configure(text="Ver procedimiento")
         self.lienzo_resultado.yview_moveto(0)
         self.raiz.update_idletasks()
         self._ajustar_textos()
@@ -792,7 +859,7 @@ class CalculadoraApp:
         if not self.ultimo_resultado: return
         if self.procedimiento_visible:
             self.sub_procedimiento.pack_forget()
-            self.boton_procedimiento.configure(text="Ver paso a paso")
+            self.boton_procedimiento.configure(text="Ver procedimiento")
             self.procedimiento_visible = False
         else:
             self.sub_procedimiento.pack(fill="x", padx=16, pady=(4, 2), anchor="n")
@@ -802,11 +869,74 @@ class CalculadoraApp:
         self.lienzo_resultado.configure(scrollregion=self.lienzo_resultado.bbox("all"))
 
 # =====================================================================
+# BLOQUE 7: PRUEBAS AUTOMÁTICAS DEL ALGORITMO
+# =====================================================================
+def ejecutar_pruebas():
+    """Ejecuta los sistemas predefinidos y verifica que el algoritmo funciona."""
+    pruebas = [
+        ("Caso 1: solución única", [[1, 1, 1], [2, -1, 1], [1, 2, -1]], [6, 3, 2], "Consistente Determinado", ["1", "2", "3"]),
+        ("Caso 2: infinitas", [[1, 1, 1], [2, 2, 2]], [1, 2], "Consistente Indeterminado", None),
+        ("Caso 3: inconsistente", [[1, 1], [1, 1]], [1, 3], "Inconsistente", None),
+        ("Clase Lay", [[1, -2, 1], [0, 2, -8], [-4, 5, 9]], [0, 8, -9], "Consistente Determinado", ["29", "16", "3"]),
+        ("Actividad 1", [[2, 3, 1], [5, 3, 4], [1, 1, -1]], [1, 2, 1], "Consistente Determinado", ["2/3", "0", "-1/3"]),
+        ("Inconsistente Clase", [[0, 1, -4], [2, -3, 2], [5, -8, 7]], [8, 1, 1], "Inconsistente", None),
+        ("Matriz 5x5", [[1, 2, 0, 1, 1], [0, 1, 1, 0, 0], [0, 0, 1, 1, -1], [0, 0, 0, 1, 2], [0, 0, 0, 0, 1]], [4, 2, 3, 5, 1], "Consistente Determinado", ["-2", "1", "1", "3", "1"]),
+        ("Homogéneo", [[1, 1, 1], [2, -1, 0]], [0, 0], "Consistente Indeterminado", None),
+        ("Ceros", [[0, 0], [0, 0]], [0, 0], "Consistente Indeterminado", None),
+        ("Imposible", [[0]], [7], "Inconsistente", None),
+        ("Intercambio necesario", [[0, 1], [1, 0]], [2, 3], "Consistente Determinado", ["3", "2"]),
+        ("Más ecuaciones", [[1, 0], [0, 1], [1, 1]], [1, 2, 3], "Consistente Determinado", ["1", "2"]),
+        ("Más ecuaciones, incompatible", [[1, 0], [0, 1], [1, 1]], [1, 2, 4], "Inconsistente", None),
+        ("Fracciones", [["1/2", "1/3"], ["1/4", "1/5"]], [1, 1], "Consistente Determinado", ["-8", "15"]),
+        ("Más incógnitas", [[1, 2, 3]], [6], "Consistente Indeterminado", None),
+    ]
+
+    fallos = 0
+    print("=" * 64)
+    print("INICIANDO PRUEBAS AUTOMÁTICAS DEL ALGORITMO")
+    print("=" * 64)
+
+    for nombre, A, b, clasificacion_esperada, solucion_esperada in pruebas:
+        A = [[a_numero(str(valor)) for valor in fila] for fila in A]
+        b = [a_numero(str(valor)) for valor in b]
+        resultado = resolver_sistema(len(A), len(A[0]), A, b)
+
+        problemas = []
+        if resultado["clasificacion"] != clasificacion_esperada:
+            problemas.append(f"Clasificó como {resultado['clasificacion']} pero se esperaba {clasificacion_esperada}")
+        if solucion_esperada is not None:
+            obtenida = [formato(valor) for valor in resultado["solucion"]]
+            if obtenida != solucion_esperada:
+                problemas.append(f"Solución {obtenida} en vez de {solucion_esperada}")
+        
+        correcta, motivo = es_escalonada(resultado["escalonada"])
+        if not correcta:
+            problemas.append(f"Fallo al escalonar: {motivo}")
+        
+        if "FALLO" in resultado["verificacion"]:
+            problemas.append("La verificación de la solución falló")
+
+        if problemas:
+            fallos += 1
+            print(f"[FALLA] {nombre}")
+            for p in problemas: print(f"         - {p}")
+        else:
+            print(f"[  OK  ] {nombre}")
+
+    print("=" * 64)
+    if fallos == 0:
+        print("¡Excelente! Todas las 44 comprobaciones pasaron correctamente.")
+    else:
+        print(f"Alerta: Se encontraron {fallos} fallos matemáticos.")
+    print("=" * 64)
+    return fallos
+
+# =====================================================================
 # PUNTO DE ENTRADA
 # =====================================================================
 def main():
     if "--pruebas" in sys.argv:
-        sys.exit(0)
+        sys.exit(1 if ejecutar_pruebas() else 0)
 
     raiz = tk.Tk()
     app = MenuPrincipal(raiz)

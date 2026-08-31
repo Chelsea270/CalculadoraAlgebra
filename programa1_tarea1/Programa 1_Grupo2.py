@@ -57,7 +57,12 @@ BORDE         = "#E5E5E5"   # Borde sutil
 EXITO         = "#059669"   # Verde éxito
 ADVERTENCIA   = "#B45309"   # Ámbar (indeterminado)
 ERROR         = "#DC2626"   # Rojo (inconsistente / errores)
-CELDA_BORDE   = "#D1D1D6"   # Borde de celdas de la matriz
+CELDA_BORDE   = "#D1D1D6"   # Borde de la caja de ecuaciones
+LINEA_MATRIZ  = "#B9B9BF"   # Líneas de la cuadrícula de la matriz
+BARRA_AB      = "#3A3A3C"   # Barra que separa A de b en [A|b]
+CELDA_FONDO   = "#FFFFFF"   # Fondo normal de una casilla
+CELDA_FOCO    = "#EFF5FE"   # Fondo de la casilla donde se está escribiendo
+CELDA_ERROR   = "#FDE0DE"   # Fondo de una casilla con un valor inválido
 LETRA_MONO    = "Consolas"  # Fuente monoespaciada para la matriz
 
 MAX_DIMENSION = 8           # Tope de ecuaciones y variables admitidas
@@ -655,28 +660,12 @@ def verificar(m, n, A, b, solucion):
 
 
 # =====================================================================
-# BLOQUE 5: EJEMPLOS PRECARGADOS
-# Los tres casos del informe, para poder mostrarlos rápido en la
-# presentación sin teclear la matriz cada vez.
+# BLOQUE 5: SISTEMA QUE APARECE AL ABRIR EL PROGRAMA
+# Se muestra escrito en la caja de ecuaciones como guía del formato.
 # =====================================================================
-EJEMPLOS = {
-    "unica": {
-        "titulo": "Solución única",
-        "ecuaciones": ("x1 + x2 + x3 = 6\n"
-                       "2x1 - x2 + x3 = 3\n"
-                       "x1 + 2x2 - x3 = 2"),
-    },
-    "infinitas": {
-        "titulo": "Infinitas soluciones",
-        "ecuaciones": ("x1 + x2 + x3 = 1\n"
-                       "2x1 + 2x2 + 2x3 = 2"),
-    },
-    "sin_solucion": {
-        "titulo": "Sin solución",
-        "ecuaciones": ("x1 + x2 = 1\n"
-                       "x1 + x2 = 3"),
-    },
-}
+SISTEMA_INICIAL = ("x1 + x2 + x3 = 6\n"
+                   "2x1 - x2 + x3 = 3\n"
+                   "x1 + 2x2 - x3 = 2")
 
 
 # =====================================================================
@@ -703,6 +692,7 @@ class CalculadoraApp:
         self.var_n = tk.StringVar(value="3")   # número de variables
         self.celdas = {}       # (fila, columna) -> StringVar
         self.entradas = {}     # (fila, columna) -> widget Entry
+        self.celda_con_error = None   # casilla marcada por un valor inválido
         self.filas_actuales = 0
         self.columnas_actuales = 0
         self.procedimiento_visible = False
@@ -796,7 +786,7 @@ class CalculadoraApp:
 
         lienzo_matriz = tk.Canvas(contenedor_matriz, bg=TARJETA,
                                   highlightthickness=0, width=400,
-                                  height=170)
+                                  height=150)
         barra_v = ttk.Scrollbar(contenedor_matriz, orient="vertical",
                                 command=lienzo_matriz.yview)
         barra_h = ttk.Scrollbar(contenedor_matriz, orient="horizontal",
@@ -947,31 +937,19 @@ class CalculadoraApp:
                  ).pack(fill="x", pady=(0, 6))
 
         self.caja_ecuaciones = tk.Text(
-            cont, height=5, font=self.fuente_mono, bg="#FFFFFF", fg=TEXTO,
+            cont, height=4, font=self.fuente_mono, bg="#FFFFFF", fg=TEXTO,
             relief="solid", bd=1, highlightthickness=1,
             highlightbackground=CELDA_BORDE, highlightcolor=ACENTO,
             wrap="none", padx=8, pady=6, insertbackground=TEXTO)
         self.caja_ecuaciones.pack(fill="x")
-        self.caja_ecuaciones.insert("1.0", "x1 + x2 + x3 = 6\n"
-                                           "2x1 - x2 + x3 = 3\n"
-                                           "x1 + 2x2 - x3 = 2")
+        self.caja_ecuaciones.insert("1.0", SISTEMA_INICIAL)
 
         botones = tk.Frame(cont, bg=TARJETA)
         botones.pack(fill="x", pady=(8, 0))
-        # Primera fila: acciones sobre lo escrito. Segunda fila: los tres
-        # ejemplos. Repartidos así caben incluso en la ventana más
-        # pequeña que admite el programa.
-        acciones = [
-            (0, 0, "Convertir a matriz", self._convertir_ecuaciones),
-            (0, 1, "Borrar", self._borrar_ecuaciones),
-            (1, 0, "Ej. única", lambda: self._cargar_ejemplo("unica")),
-            (1, 1, "Ej. infinitas", lambda: self._cargar_ejemplo("infinitas")),
-            (1, 2, "Ej. sin solución",
-             lambda: self._cargar_ejemplo("sin_solucion")),
-        ]
-        for fila, columna, texto, accion in acciones:
-            self._boton_secundario(botones, texto, accion, fila=fila,
-                                   columna=columna)
+        self._boton_secundario(botones, "Convertir a matriz",
+                               self._convertir_ecuaciones, fila=0, columna=0)
+        self._boton_secundario(botones, "Borrar", self._borrar_ecuaciones,
+                               fila=0, columna=1)
 
         self.aviso_ecuaciones = tk.Label(
             cont, text="", font=self.fuente_body, bg=TARJETA, fg=EXITO,
@@ -1113,45 +1091,107 @@ class CalculadoraApp:
         self.filas_actuales = m
         self.columnas_actuales = n
 
-        # Encabezado de columnas: x1, x2, ... y la columna b
+        # ---- Disposición de la cuadrícula ----
+        # La matriz se dibuja como una tabla continua, no como casillas
+        # sueltas. Para lograrlo se intercalan marcos de un píxel que
+        # hacen de líneas: las columnas pares son líneas verticales y las
+        # casillas van en las columnas impares. Lo mismo con las filas.
+        #
+        #   columna 0        línea del borde izquierdo
+        #   columna 1        casillas de x1
+        #   columna 2        línea
+        #   ...
+        #   columna 2n       barra que separa A de b (más gruesa)
+        #   columna 2n+1     casillas de b
+        #   columna 2n+2     línea del borde derecho
+        #
+        #   fila 0           encabezados (x1, x2, ..., b), fuera del marco
+        #   fila 1           línea del borde superior
+        #   fila 2i+2        casillas de la ecuación i+1
+        #   fila 2i+3        línea entre ecuaciones
+        #   fila 2m+1        línea del borde inferior
+        total_columnas = n + 1                    # variables más el vector b
+        columna_celda = lambda j: 2 * j + 1
+        fila_celda = lambda i: 2 * i + 2
+        ultima_columna = 2 * total_columnas
+        filas_del_marco = 2 * m + 1               # de la fila 1 a la 2m+1
+
+        # ---- Encabezados de columna, por encima del marco ----
         for j in range(n):
             tk.Label(self.frame_matriz, text=f"x{j+1}", font=self.fuente_sub,
                      bg=TARJETA, fg=TEXTO_SUAVE
-                     ).grid(row=0, column=j, padx=2, pady=(0, 4))
+                     ).grid(row=0, column=columna_celda(j), pady=(0, 4))
         tk.Label(self.frame_matriz, text="b", font=self.fuente_sub,
-                 bg=TARJETA, fg=TEXTO_SUAVE
-                 ).grid(row=0, column=n, padx=(14, 2), pady=(0, 4))
+                 bg=TARJETA, fg=ACENTO
+                 ).grid(row=0, column=columna_celda(n), pady=(0, 4))
 
-        # Casillas de entrada
+        # ---- Líneas verticales: bordes, separadores y la barra de [A|b] ----
+        for j in range(total_columnas + 1):
+            columna = 2 * j
+            es_barra_ab = (j == n)                # la que separa A de b
+            tk.Frame(self.frame_matriz,
+                     width=3 if es_barra_ab else 1,
+                     bg=BARRA_AB if es_barra_ab else LINEA_MATRIZ
+                     ).grid(row=1, column=columna, rowspan=filas_del_marco,
+                            sticky="ns")
+
+        # ---- Líneas horizontales: bordes superior, inferior e intermedios --
+        for i in range(m + 1):
+            fila = 2 * i + 1
+            for j in range(total_columnas):
+                tk.Frame(self.frame_matriz, height=1, bg=LINEA_MATRIZ
+                         ).grid(row=fila, column=columna_celda(j),
+                                sticky="ew")
+
+        # ---- Casillas de entrada, pegadas unas a otras ----
         for i in range(m):
-            for j in range(n + 1):
+            for j in range(total_columnas):
                 variable = tk.StringVar(value=valores_previos.get((i, j), ""))
                 self.celdas[(i, j)] = variable
                 entrada = tk.Entry(
                     self.frame_matriz, textvariable=variable,
                     font=self.fuente_mono, width=6, justify="center",
-                    relief="solid", bd=1, highlightthickness=1,
-                    highlightbackground=CELDA_BORDE, highlightcolor=ACENTO,
-                    bg="#FFFFFF", fg=TEXTO)
-                padx = (14, 2) if j == n else (2, 2)
-                entrada.grid(row=i + 1, column=j, padx=padx, pady=3, ipady=3)
+                    relief="flat", bd=0, highlightthickness=0,
+                    bg=CELDA_FONDO, fg=TEXTO, disabledbackground=CELDA_FONDO,
+                    insertbackground=TEXTO)
+                entrada.grid(row=fila_celda(i), column=columna_celda(j),
+                             sticky="nsew", ipady=4)
                 entrada.bind("<Return>", lambda e: self._al_resolver())
-                self.entradas[(i, j)] = entrada
+                # Al entrar en una casilla se resalta suavemente, para no
+                # perder de vista dónde se está escribiendo ahora que las
+                # casillas ya no tienen borde propio.
+                clave = (i, j)
+                entrada.bind("<FocusIn>",
+                             lambda e, c=clave: self._pintar_celda(c, True))
+                entrada.bind("<FocusOut>",
+                             lambda e, c=clave: self._pintar_celda(c, False))
+                entrada.bind("<KeyRelease>",
+                             lambda e, c=clave: self._al_teclear(c))
+                self.entradas[clave] = entrada
+
+    def _pintar_celda(self, clave, enfocada):
+        """Cambia el fondo de una casilla al entrar o salir de ella, sin
+        borrar la marca roja si esa casilla tiene un error pendiente."""
+        if clave == self.celda_con_error:
+            return
+        entrada = self.entradas.get(clave)
+        if entrada is not None:
+            entrada.configure(bg=CELDA_FOCO if enfocada else CELDA_FONDO)
+
+    def _al_teclear(self, clave):
+        """En cuanto el usuario corrige una casilla marcada como errónea,
+        se le quita el color de error."""
+        if clave == self.celda_con_error:
+            self.celda_con_error = None
+            entrada = self.entradas.get(clave)
+            if entrada is not None:
+                entrada.configure(bg=CELDA_FOCO)
 
     def _limpiar_celdas(self):
         """Vacía todas las casillas de la matriz."""
         for variable in self.celdas.values():
             variable.set("")
-        for entrada in self.entradas.values():
-            entrada.configure(highlightbackground=CELDA_BORDE,
-                              highlightcolor=ACENTO)
-
-    def _cargar_ejemplo(self, clave):
-        """Escribe uno de los tres ejemplos en la caja de ecuaciones y lo
-        convierte a matriz, de modo que se vean los dos pasos."""
-        self.caja_ecuaciones.delete("1.0", "end")
-        self.caja_ecuaciones.insert("1.0", EJEMPLOS[clave]["ecuaciones"])
-        self._convertir_ecuaciones()
+        self._restaurar_bordes()
 
     # ------------------------------------------------------------------
     # Acción principal: leer, resolver y mostrar
@@ -1200,17 +1240,20 @@ class CalculadoraApp:
                 "Revise los datos ingresados e inténtelo de nuevo.")
 
     def _restaurar_bordes(self):
-        """Devuelve todas las casillas a su borde normal."""
+        """Devuelve todas las casillas a su color de fondo normal."""
+        self.celda_con_error = None
         for entrada in self.entradas.values():
-            entrada.configure(highlightbackground=CELDA_BORDE,
-                              highlightcolor=ACENTO)
+            entrada.configure(bg=CELDA_FONDO)
 
     def _mostrar_error(self, mensaje, fila, columna):
-        """Avisa del error, marca en rojo la casilla y le pone el foco."""
+        """Avisa del error, pinta de rojo claro la casilla con el problema
+        y le pone el foco. Como las casillas ya no tienen borde propio, el
+        error se señala con el color de fondo."""
         self._restaurar_bordes()
         entrada = self.entradas.get((fila, columna))
         if entrada is not None:
-            entrada.configure(highlightbackground=ERROR, highlightcolor=ERROR)
+            self.celda_con_error = (fila, columna)
+            entrada.configure(bg=CELDA_ERROR)
             entrada.focus_set()
             entrada.selection_range(0, "end")
         messagebox.showerror("Entrada inválida", mensaje)
